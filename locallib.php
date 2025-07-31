@@ -872,13 +872,16 @@ class local_stream_help {
 
         // For Zoom platform, handle mod_stream collection mode
         if ($this->config->platform == $this::PLATFORM_ZOOM && $meeting->streamid) {
-            // Find mod_stream instance with collection_mode=true in the specified course
-            $streaminstance = $DB->get_record('stream', [
+            // Find mod_stream instances with collection_mode=true in the specified course
+            $streaminstances = $DB->get_records('stream', [
                 'course' => $meeting->course,
                 'collection_mode' => 1
             ]);
 
-            if ($streaminstance) {
+            if (!empty($streaminstances)) {
+                // Use the first available stream instance (you can modify this logic as needed)
+                $streaminstance = reset($streaminstances);
+                
                 // Add the new video ID to the existing collection
                 $currentidentifiers = !empty($streaminstance->identifier) ? explode(',', $streaminstance->identifier) : [];
                 $currentvideoorder = !empty($streaminstance->video_order) ? json_decode($streaminstance->video_order, true) : [];
