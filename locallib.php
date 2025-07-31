@@ -859,14 +859,51 @@ class local_stream_help {
      * Add a Zoom meeting module to a course.
      *
      * This method creates a new module in the specified course with information from the Zoom meeting.
+     * For Zoom platform, it finds existing mod_stream instances with collection_mode=true and adds
+     * the video to the collection.
      *
      * @param stdClass $meeting The Zoom meeting information.
      * @return int|bool The ID of the created module or false if the module creation fails.
      */
     public function add_module($meeting) {
+        global $DB;
 
         $meeting->idnumber = 'meeting-' . $meeting->meetingid;
 
+        // For Zoom platform, handle mod_stream collection mode
+        if ($this->config->platform == $this::PLATFORM_ZOOM && $meeting->streamid) {
+            // Find mod_stream instance with collection_mode=true in the specified course
+            $streaminstance = $DB->get_record('stream', [
+                'course' => $meeting->course,
+                'collection_mode' => 1
+            ]);
+
+            if ($streaminstance) {
+                // Add the new video ID to the existing collection
+                $currentidentifiers = !empty($streaminstance->identifier) ? explode(',', $streaminstance->identifier) : [];
+                $currentvideoorder = !empty($streaminstance->video_order) ? json_decode($streaminstance->video_order, true) : [];
+
+                // Add new video ID if not already present
+                if (!in_array($meeting->streamid, $currentidentifiers)) {
+                    $currentidentifiers[] = $meeting->streamid;
+                    $currentvideoorder[] = (string)$meeting->streamid;
+
+                    // Update the stream instance
+                    $streaminstance->identifier = implode(',', $currentidentifiers);
+                    $streaminstance->video_order = json_encode($currentvideoorder);
+                    $streaminstance->timemodified = time();
+
+                    $DB->update_record('stream', $streaminstance);
+
+                    // Return the existing stream instance ID
+                    return (object)['id' => $streaminstance->id];
+                }
+
+                return (object)['id' => $streaminstance->id];
+            }
+        }
+
+        // Original module creation logic for other platforms or when no collection mode instance exists
         $moduledata = new \stdClass();
         $moduledata->course = $meeting->course;
         $moduledata->modulename = 'stream';
@@ -875,8 +912,8 @@ class local_stream_help {
         $moduledata->visible = ($this->config->hidefromstudents ? 0 : 1);
         $moduledata->contentformat = FORMAT_HTML;
         $moduledata->introeditor = [
-                'text' => '',
-                'format' => true,
+            'text' => '',
+            'format' => true,
         ];
 
         if (isset($meeting->recordingdata)) {
