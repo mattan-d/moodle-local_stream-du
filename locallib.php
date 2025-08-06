@@ -919,6 +919,15 @@ class local_stream_help {
             'format' => true,
         ];
 
+        // For Zoom platform, check if this is the first mod_stream in the course
+        if ($this->config->platform == $this::PLATFORM_ZOOM) {
+            $existingstreams = $DB->count_records('stream', ['course' => $meeting->course]);
+            if ($existingstreams == 0) {
+                // This is the first mod_stream in the course, set collection_mode = 1
+                $moduledata->collection_mode = 1;
+            }
+        }
+
         if (isset($meeting->recordingdata)) {
             $recordingdata = json_decode($meeting->recordingdata);
         }
